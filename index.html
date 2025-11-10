@@ -1,0 +1,253 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Bank & ATM — Frontend Demo</title>
+  <style>
+    :root{--bg:#0f172a;--card:#0b1220;--muted:#94a3b8;--accent:#06b6d4}
+    *{box-sizing:border-box;font-family:Inter,system-ui,Segoe UI,Roboto,Arial}
+    body{margin:0;background:linear-gradient(180deg,#071024 0%,#071630 100%);color:#e6eef6;min-height:100vh;padding:24px}
+    .container{max-width:980px;margin:0 auto}
+    header{display:flex;align-items:center;gap:16px}
+    h1{margin:0;font-size:20px}
+    .card{background:rgba(255,255,255,0.03);padding:18px;border-radius:12px;margin-top:18px;box-shadow:0 6px 24px rgba(2,6,23,0.6)}
+    label{display:block;font-size:13px;color:var(--muted);margin-top:10px}
+    input,select,button,textarea{width:100%;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:inherit}
+    .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .small{max-width:220px}
+    .muted{color:var(--muted);font-size:13px}
+    .flex{display:flex;gap:8px;align-items:center}
+    .btn{background:var(--accent);border:none;color:#042027;padding:10px 12px;border-radius:10px;cursor:pointer}
+    table{width:100%;border-collapse:collapse;margin-top:12px}
+    th,td{padding:8px;text-align:left;border-bottom:1px solid rgba(255,255,255,0.03);font-size:13px}
+    .kbd{background:rgba(255,255,255,0.03);padding:4px 8px;border-radius:6px;font-size:12px}
+    footer{margin-top:22px;color:var(--muted);font-size:13px}
+    .notice{background:rgba(255,255,255,0.02);padding:10px;border-radius:8px;margin-top:12px}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div style="width:48px;height:48px;background:linear-gradient(90deg,#06b6d4,#7c3aed);border-radius:12px"></div>
+      <div>
+        <h1>🏦 Bank & ATM — Frontend Demo</h1>
+        <div class="muted">Standalone HTML demo (no server). Data stored in your browser.</div>
+      </div>
+    </header>
+
+    <div class="card">
+      <div class="flex">
+        <label for="mode">Choose Mode:</label>
+        <select id="mode" style="max-width:160px">
+          <option value="atm">ATM Mode (simple)</option>
+          <option value="bank">Bank Mode (admin)</option>
+        </select>
+        <button class="btn small" id="resetData">Reset Data</button>
+        <button class="btn small" id="downloadHTML">Download HTML</button>
+      </div>
+
+      <div id="atmArea" style="margin-top:16px">
+        <!-- ATM UI -->
+        <div class="muted">ATM features: Deposit, Withdraw, Balance Enquiry, Change PIN (requires login)</div>
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <input id="atmAcc" placeholder="Account number" />
+          <input id="atmPin" placeholder="PIN" />
+          <button class="btn" id="atmLoginBtn">Login</button>
+          <div id="atmStatus" class="muted" style="align-self:center"></div>
+        </div>
+
+        <div id="atmActions" style="display:none;margin-top:12px;gap:8px">
+          <div class="row">
+            <div>
+              <label>Deposit Amount</label>
+              <input id="depositAmount" placeholder="Amount in ₹" />
+              <button class="btn" id="depositBtn">Deposit</button>
+            </div>
+            <div>
+              <label>Withdraw Amount</label>
+              <input id="withdrawAmount" placeholder="Amount in ₹" />
+              <button class="btn" id="withdrawBtn">Withdraw</button>
+            </div>
+          </div>
+
+          <div style="display:flex;gap:8px;margin-top:10px">
+            <button class="btn" id="balanceBtn">Balance Enquiry</button>
+            <button class="btn" id="changePinBtn">Change PIN</button>
+            <div id="atmResult" class="muted" style="padding-top:6px"></div>
+          </div>
+        </div>
+      </div>
+
+      <div id="bankArea" style="margin-top:18px;display:none">
+        <!-- Bank UI -->
+        <h3>Create Account</h3>
+        <div class="row">
+          <div>
+            <label>Name</label>
+            <input id="b_name" />
+            <label>DOB (YYYY-MM-DD)</label>
+            <input id="b_dob" />
+            <label>Mobile (10 digits)</label>
+            <input id="b_mobile" />
+            <label>Aadhaar</label>
+            <input id="b_adhar" />
+          </div>
+          <div>
+            <label>PAN</label>
+            <input id="b_pan" />
+            <label>Address</label>
+            <textarea id="b_address"></textarea>
+            <label>4-digit PIN</label>
+            <input id="b_pin" maxlength="4" />
+            <label>Opening Deposit (₹)</label>
+            <input id="b_deposit" />
+          </div>
+        </div>
+        <div style="margin-top:10px;display:flex;gap:8px">
+          <button class="btn" id="createAccBtn">Create Account</button>
+          <div id="createMsg" class="muted"></div>
+        </div>
+
+        <h3 style="margin-top:16px">All Customers</h3>
+        <div class="notice">This is a demo list stored locally in your browser (localStorage).</div>
+        <table id="custTable"><thead><tr><th>Account</th><th>Name</th><th>Mobile</th><th>Balance</th></tr></thead><tbody></tbody></table>
+      </div>
+
+      <footer>
+        Tip: You can download this page as an HTML file and open it locally in your browser.
+      </footer>
+    </div>
+  </div>
+
+  <script>
+    // Simple client-side data store using localStorage
+    const DB_KEY = 'bank_demo_customers_v1'
+
+    function loadCustomers(){
+      try{
+        return JSON.parse(localStorage.getItem(DB_KEY) || '[]')
+      }catch(e){ return [] }
+    }
+    function saveCustomers(arr){ localStorage.setItem(DB_KEY, JSON.stringify(arr)) }
+
+    function genAccount(){
+      return String(Math.floor(Math.random()*9000000000) + 1000000000)
+    }
+
+    function renderTable(){
+      const tbody = document.querySelector('#custTable tbody')
+      tbody.innerHTML = ''
+      const arr = loadCustomers()
+      arr.forEach(c=>{
+        const tr = document.createElement('tr')
+        tr.innerHTML = `<td>${c.account_no}</td><td>${c.name}</td><td>${c.mobile}</td><td>₹${Number(c.balance).toFixed(2)}</td>`
+        tbody.appendChild(tr)
+      })
+    }
+
+    // Mode switching
+    const modeSelect = document.getElementById('mode')
+    const atmArea = document.getElementById('atmArea')
+    const bankArea = document.getElementById('bankArea')
+    modeSelect.addEventListener('change', ()=>{
+      if(modeSelect.value === 'atm'){ atmArea.style.display='block'; bankArea.style.display='none' }
+      else { atmArea.style.display='none'; bankArea.style.display='block' }
+    })
+
+    // Reset data
+    document.getElementById('resetData').addEventListener('click', ()=>{
+      if(confirm('Reset local demo data?')){ localStorage.removeItem(DB_KEY); renderTable(); alert('Data reset.') }
+    })
+
+    // Download HTML file of this page
+    document.getElementById('downloadHTML').addEventListener('click', ()=>{
+      const blob = new Blob([document.documentElement.outerHTML], {type:'text/html'})
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url; a.download = 'bank_atm_demo.html'; a.click()
+      URL.revokeObjectURL(url)
+    })
+
+    // Create account
+    document.getElementById('createAccBtn').addEventListener('click', ()=>{
+      const name = document.getElementById('b_name').value.trim()
+      const dob = document.getElementById('b_dob').value.trim()
+      const mobile = document.getElementById('b_mobile').value.trim()
+      const adhar = document.getElementById('b_adhar').value.trim()
+      const pan = document.getElementById('b_pan').value.trim()
+      const address = document.getElementById('b_address').value.trim()
+      const pin = document.getElementById('b_pin').value.trim()
+      const deposit = parseFloat(document.getElementById('b_deposit').value||0)
+
+      if(!name || !mobile || pin.length!==4){ document.getElementById('createMsg').textContent='Please fill required fields (Name, Mobile, 4-digit PIN)'; return }
+
+      const acc = genAccount()
+      const customers = loadCustomers()
+      customers.push({account_no:acc,name,dob,mobile,adhar,pan,address,pin,balance:deposit})
+      saveCustomers(customers)
+      renderTable()
+      document.getElementById('createMsg').textContent = `✅ Account created: ${acc}`
+
+      // Simulate SMS (no real Twilio): show in console and message
+      console.log(`Simulated SMS -> Hello ${name}, your new Account ${acc} created.`)
+    })
+
+    // ATM login & actions
+    let loggedAcc = null
+    document.getElementById('atmLoginBtn').addEventListener('click', ()=>{
+      const acc = document.getElementById('atmAcc').value.trim()
+      const pin = document.getElementById('atmPin').value.trim()
+      const customers = loadCustomers()
+      const user = customers.find(c=>c.account_no===acc && c.pin===pin)
+      const status = document.getElementById('atmStatus')
+      if(user){ loggedAcc = acc; status.textContent=`Logged in: ${user.name}`; document.getElementById('atmActions').style.display='grid'; document.getElementById('atmResult').textContent=''; }
+      else{ status.textContent = 'Invalid account or PIN'; document.getElementById('atmActions').style.display='none'; loggedAcc=null }
+    })
+
+    document.getElementById('depositBtn').addEventListener('click', ()=>{
+      if(!loggedAcc){ alert('Please log in first'); return }
+      const amt = parseFloat(document.getElementById('depositAmount').value||0)
+      if(amt<=0){ alert('Enter valid amount'); return }
+      const customers = loadCustomers()
+      const idx = customers.findIndex(c=>c.account_no===loggedAcc)
+      if(idx===-1) return alert('Account not found')
+      customers[idx].balance = Number(customers[idx].balance||0) + amt
+      saveCustomers(customers); renderTable(); document.getElementById('atmResult').textContent = `✅ Deposited ₹${amt.toFixed(2)}. New balance ₹${customers[idx].balance.toFixed(2)}`
+    })
+
+    document.getElementById('withdrawBtn').addEventListener('click', ()=>{
+      if(!loggedAcc){ alert('Please log in first'); return }
+      const amt = parseFloat(document.getElementById('withdrawAmount').value||0)
+      if(amt<=0){ alert('Enter valid amount'); return }
+      const customers = loadCustomers()
+      const idx = customers.findIndex(c=>c.account_no===loggedAcc)
+      if(idx===-1) return alert('Account not found')
+      if(customers[idx].balance >= amt){ customers[idx].balance -= amt; saveCustomers(customers); renderTable(); document.getElementById('atmResult').textContent = `✅ Withdrawn ₹${amt.toFixed(2)}. Remaining ₹${customers[idx].balance.toFixed(2)}` }
+      else document.getElementById('atmResult').textContent = '⚠️ Insufficient balance'
+    })
+
+    document.getElementById('balanceBtn').addEventListener('click', ()=>{
+      if(!loggedAcc){ alert('Please log in first'); return }
+      const customers = loadCustomers()
+      const user = customers.find(c=>c.account_no===loggedAcc)
+      if(user) document.getElementById('atmResult').textContent = `👤 ${user.name} | 💰 ₹${Number(user.balance).toFixed(2)}`
+      else document.getElementById('atmResult').textContent = 'Account not found'
+    })
+
+    document.getElementById('changePinBtn').addEventListener('click', ()=>{
+      if(!loggedAcc){ alert('Please log in first'); return }
+      const oldPin = prompt('Enter current PIN:')
+      const newPin = prompt('Enter new 4-digit PIN:')
+      if(!oldPin || !newPin || newPin.length!==4){ alert('PIN must be 4 digits'); return }
+      const customers = loadCustomers(); const idx = customers.findIndex(c=>c.account_no===loggedAcc)
+      if(idx===-1) return alert('Account not found')
+      if(customers[idx].pin !== oldPin) return alert('Incorrect current PIN')
+      customers[idx].pin = newPin; saveCustomers(customers); alert('✅ PIN changed')
+    })
+
+    // initial render
+    renderTable()
+  </script>
+</body>
+</html>
